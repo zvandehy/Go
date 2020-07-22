@@ -17,7 +17,7 @@ var tpl *template.Template
 
 //BudgetItem sets limit for spending on a specific category
 type BudgetItem struct {
-	ID int
+	ID int32
 	Category string
 	Limit float32
 	Frequency string
@@ -59,14 +59,17 @@ func init() {
 
 func main() {
 	http.HandleFunc("/", index)
-	http.HandleFunc("/budgetitems", budgetItemsIndex)
-	http.HandleFunc("/budgetitems/create/process", budgetitemsCreateProcess)
-	http.HandleFunc("/budgetitems/delete/process", budgetitemsDeleteProcess)
+	http.HandleFunc("/budgetItems", budgetItemsIndex)
+	http.HandleFunc("/budgetItems/create", budgetItemsCreateForm)
+	http.HandleFunc("/budgetItems/create/process", budgetItemsCreateProcess)
+	http.HandleFunc("/budgetItems/update", budgetItemsUpdateForm)
+	http.HandleFunc("/budgetItems/update/process", budgetItemsUpdateProcess)
+	http.HandleFunc("/budgetItems/delete/process", budgetItemsDeleteProcess)
 	http.ListenAndServe(":8080", nil)
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/budgetitems", http.StatusSeeOther)
+	http.Redirect(w, r, "/budgetItems", http.StatusSeeOther)
 }
 
 func budgetItemsIndex(w http.ResponseWriter, r *http.Request) {
@@ -100,25 +103,28 @@ func budgetItemsIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tpl.ExecuteTemplate(w, "budgetitems.gohtml", budgetItems)
+	tpl.ExecuteTemplate(w, "budgetItems.gohtml", budgetItems)
 
 }
+func budgetItemsCreateForm(w http.ResponseWriter, r *http.Request) {
+	tpl.ExecuteTemplate(w, "create.gohtml", nil)
+}
 
-func budgetitemsCreateProcess(w http.ResponseWriter, r *http.Request) {
+func budgetItemsCreateProcess(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, http.StatusText(405), http.StatusMethodNotAllowed)
 		return
 	}
 
 	// get form values
-	item := BudgetItem{}
+	var item BudgetItem
 	item.Category = r.FormValue("category")
-	limit :=r.FormValue("expense_limit")
 	item.Frequency = r.FormValue("frequency")
-
+	limit :=r.FormValue("expense_limit")
 
 	// validate form values
 	if item.Category == "" || limit == "" {
+		fmt.Println("Bad Request: ", item, limit)
 		http.Error(w, http.StatusText(400), http.StatusBadRequest)
 		return
 	}
@@ -140,10 +146,78 @@ func budgetitemsCreateProcess(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//redirect to home
-	http.Redirect(w, r, "/budgetitems", http.StatusSeeOther)
+	http.Redirect(w, r, "/budgetItems", http.StatusSeeOther)
 }
 
-func budgetitemsDeleteProcess(w http.ResponseWriter, r *http.Request) {
+func budgetItemsUpdateForm(w http.ResponseWriter, r *http.Request) {
+	id := r.FormValue("id")
+	if id == "" {
+		http.Error(w, http.StatusText(400), http.StatusBadRequest)
+		return
+	}
+	var item BudgetItem
+	err := db.QueryRow("SELECT category,expense_limit,frequency FROM budget_items WHERE item_id=$1", id).Scan(&item.Category,&item.Limit,&item.Frequency)
+	switch {
+	case err == sql.ErrNoRows:
+		http.NotFound(w, r)
+		return
+	case err != nil:
+		fmt.Println("here", err)
+		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
+		return
+	}
+	id32, err := strconv.ParseInt(id,0,32)
+	item.ID = int32(id32)
+
+	tpl.ExecuteTemplate(w, "update.gohtml", item)
+}
+
+func budgetItemsUpdateProcess(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, http.StatusText(405), http.StatusMethodNotAllowed)
+		return
+	}
+
+	// get form values
+	var item BudgetItem
+
+	item.Category = r.FormValue("category")
+	item.Frequency = r.FormValue("frequency")
+	limit := r.FormValue("expense_limit")
+	id := r.FormValue("id")
+	
+
+	// validate form values
+	if item.Frequency == "" || item.Category == "" || limit == "" || id == "" {
+		fmt.Printf("Bad Request! item: %v, limit: %v, id: %v", item, limit, id)
+		http.Error(w, http.StatusText(400), http.StatusBadRequest)
+		return
+	}
+
+	// convert form values
+	f64, err := strconv.ParseFloat(limit, 32)
+	if err != nil {
+		http.Error(w, http.StatusText(406)+"Please hit back and enter a number for the price", http.StatusNotAcceptable)
+		return
+	}
+	item.Limit = float32(f64)
+	
+	id32, err := strconv.ParseInt(id,0,32)
+	item.ID = int32(id32)
+
+
+	// insert values
+	_, err = db.Exec("UPDATE budget_items SET category=$2, expense_limit=$3, frequency=$4 WHERE item_id=$1;", item.ID, item.Category, item.Limit, item.Frequency)
+	if err != nil {
+		fmt.Println("here2", err)
+		http.Error(w, http.StatusText(500), http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w,r,"/budgetItems", http.StatusSeeOther)
+}
+
+func budgetItemsDeleteProcess(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.Error(w, http.StatusText(405), http.StatusMethodNotAllowed)
 		return
@@ -164,5 +238,5 @@ func budgetitemsDeleteProcess(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/budgetitems", http.StatusSeeOther)
+	http.Redirect(w, r, "/budgetItems", http.StatusSeeOther)
 }

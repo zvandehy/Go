@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Create BudgetItem</title>
+</head>
+<body>
+<h1>Update Budget Item</h1>
+<form method="post" action="/budgetItems/update/process">
+    <input type="hidden" name="id" value="{{.ID}}">
+    <input type="text" name="category" value={{.Category}} required>
+    <input type="text" name="expense_limit" value={{.Limit}} required>
+    <input type="radio" name="frequency" value="Weekly" {{if eq .Frequency "Weekly"}} checked="checked" {{end}}>
+    <label for="Weekly">Weekly</label>
+    <input type="radio" name="frequency" value="Monthly" {{if eq .Frequency "Monthly"}} checked="checked"{{end}}>
+    <label for="Monthly">Monthly</label>
+    <input type="submit">
+</form>
+</body>
+</html>

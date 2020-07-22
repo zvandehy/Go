@@ -5,9 +5,6 @@
     <title>Create BudgetItem</title>
 </head>
 <body>
-{{range .}}
-<p>{{.Category}}: {{.Limit}} - {{.Frequency}} ... <a href= "/budgetItems/update?id={{.ID}}">Update</a> - <a href= "/budgetItems/delete/process?id={{.ID}}">Delete</a></p>
-{{end}}
 <h1>Create A New Budget Item</h1>
 <form method="post" action="/budgetItems/create/process">
     <input type="text" name="category" placeholder="category" required>
