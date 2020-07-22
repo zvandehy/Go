@@ -58,13 +58,13 @@ func init() {
 }
 
 func main() {
-	http.HandleFunc("/", index)
-	http.HandleFunc("/budgetItems", budgetItemsIndex)
-	http.HandleFunc("/budgetItems/create", budgetItemsCreateForm)
-	http.HandleFunc("/budgetItems/create/process", budgetItemsCreateProcess)
-	http.HandleFunc("/budgetItems/update", budgetItemsUpdateForm)
-	http.HandleFunc("/budgetItems/update/process", budgetItemsUpdateProcess)
-	http.HandleFunc("/budgetItems/delete/process", budgetItemsDeleteProcess)
+	http.HandleFunc("/", index) //redirect to budgetItemsIndex
+	http.HandleFunc("/budgetItems", budgetItemsIndex) //show all budget items
+	http.HandleFunc("/budgetItems/create", budgetItemsCreateForm) //display form for creating a new budget item
+	http.HandleFunc("/budgetItems/create/process", budgetItemsCreateProcess) //handle the "create" POST to the db and redirect to index
+	http.HandleFunc("/budgetItems/update", budgetItemsUpdateForm) //display the form (with provided info) to update the budget item 
+	http.HandleFunc("/budgetItems/update/process", budgetItemsUpdateProcess) //handle the "update" POST (should it be PUT?) to the db and redirect to index
+	http.HandleFunc("/budgetItems/delete/process", budgetItemsDeleteProcess) //handle the request to delete the budget item
 	http.ListenAndServe(":8080", nil)
 }
 
@@ -106,6 +106,7 @@ func budgetItemsIndex(w http.ResponseWriter, r *http.Request) {
 	tpl.ExecuteTemplate(w, "budgetItems.gohtml", budgetItems)
 
 }
+
 func budgetItemsCreateForm(w http.ResponseWriter, r *http.Request) {
 	tpl.ExecuteTemplate(w, "create.gohtml", nil)
 }
