@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>List Expenses</title>
+</head>
+<body>
+{{range .}}
+<p>{{.ID}} {{.ExpenseDate.Format "Jan 02, 2006"}} - {{.Description}} - ${{.Amount}} Category:{{.Item.Category}} ... <a href= "/expenses/update?id={{.ID}}">Update</a> - <a href= "/expenses/delete/process?id={{.ID}}">Delete</a></p>
+{{end}}
+<a href= "/expenses/create"><h1>Create a New Expense</h1></a>
+
+</body>
+</html>

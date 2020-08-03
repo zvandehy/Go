@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>List BudgetItems</title>
+</head>
+<body>
+<table>
+<tr><td><b>ITEM</b></td><td><b>FREQUENCY</b></td><td><b>LIMIT</b></td></tr>
+{{range .}}
+<tr>
+<td>{{.Category}}</td><td>{{.Frequency}}</td><td>${{.Limit}}</td>
+{{end}}
+</table>
+</body>
+</html>
