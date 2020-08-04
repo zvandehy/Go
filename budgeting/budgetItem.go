@@ -2,6 +2,7 @@ package main
 
 
 import (
+	"github.com/shopspring/decimal"
 	"net/http"
 	"fmt"
 	"strconv"
@@ -12,7 +13,7 @@ import (
 type BudgetItem struct {
 	ID int32
 	Category string
-	Limit float32
+	Limit decimal.Decimal
 	Frequency string
 }
 
@@ -75,13 +76,13 @@ func budgetItemsCreateProcess(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// convert form values
-	f64, err := strconv.ParseFloat(limit, 32)
+	// convert limit to decimal type
+	l, err := decimal.NewFromString(limit)
 	if err != nil {
 		http.Error(w, http.StatusText(406)+"Please hit back and enter a limit", http.StatusNotAcceptable)
 		return
 	}
-	item.Limit = float32(f64)
+	item.Limit = l
 
 	// insert values
 	_, err = db.Exec("INSERT INTO budget_items (category, expense_limit, frequency) VALUES ($1, $2, $3)", item.Category, item.Limit, item.Frequency)
@@ -140,13 +141,13 @@ func budgetItemsUpdateProcess(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// convert form values
-	f64, err := strconv.ParseFloat(limit, 32)
+	// convert limit to decimal from string
+	l, err := decimal.NewFromString(limit)
 	if err != nil {
 		http.Error(w, http.StatusText(406)+"Please hit back and enter a number for the price", http.StatusNotAcceptable)
 		return
 	}
-	item.Limit = float32(f64)
+	item.Limit = l
 	
 	id32, err := strconv.ParseInt(id,0,32)
 	item.ID = int32(id32)

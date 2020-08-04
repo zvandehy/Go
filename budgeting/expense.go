@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 	"database/sql"
+	"github.com/shopspring/decimal"
 )
 
 //Expense is an individual record of a payment
@@ -15,7 +16,7 @@ type Expense struct {
 	Item BudgetItem
 	Description string
 	ExpenseDate time.Time
-	Amount float32
+	Amount decimal.Decimal
 }
 
 
@@ -98,13 +99,13 @@ func expensesCreateProcess(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// convert Amount from string to float
-	amount64, err := strconv.ParseFloat(amount, 32)
+	// convert Amount from string to decimal
+	a, err := decimal.NewFromString(amount)
 	if err != nil {
 		http.Error(w, http.StatusText(406)+"Please hit back and enter an amount", http.StatusNotAcceptable)
 		return
 	}
-	expense.Amount = float32(amount64)
+	expense.Amount = a
 
 	//parse the user input into a time.Time struct
 	expenseDate, err := time.Parse(userInputDate, date)
@@ -155,7 +156,7 @@ func expensesUpdateForm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// convert amount from string to float32
-	amount64, err := strconv.ParseFloat(amount, 32)
+	a, err := decimal.NewFromString(amount)
 	if err != nil {
 		http.Error(w, http.StatusText(406)+"Please hit back and enter an amount", http.StatusNotAcceptable)
 		return
@@ -175,7 +176,7 @@ func expensesUpdateForm(w http.ResponseWriter, r *http.Request) {
 	
 	//assign expense values
 	expense.Item = budgetItem
-	expense.Amount = float32(amount64)
+	expense.Amount = a
 	// expense.ExpenseDate = expenseDate
 	
 	tpl.ExecuteTemplate(w, "updateExpenses.gohtml", expense)
@@ -203,12 +204,12 @@ func expensesUpdateProcess(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	//convert limit to float32
-	f64, err := strconv.ParseFloat(limit, 32)
+	l, err := decimal.NewFromString(limit)
 	if err != nil {
 		http.Error(w, http.StatusText(406)+" Error converting limit to float", http.StatusNotAcceptable)
 		return
 	}
-	item.Limit = float32(f64)
+	item.Limit = l
 
 	fmt.Println("budget item: ", item)
 
@@ -232,12 +233,12 @@ func expensesUpdateProcess(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	expense.ExpenseDate = expenseDate
-	f64, err = strconv.ParseFloat(r.FormValue("amount"), 32)
+	a, err := decimal.NewFromString(r.FormValue("amount"))
 	if err != nil {
 		http.Error(w, http.StatusText(406)+" Please hit back and enter a number for the price", http.StatusNotAcceptable)
 		return
 	}
-	expense.Amount = float32(f64) 
+	expense.Amount = a
 	
 	// insert expense into db
 	_, err = db.Exec("UPDATE expenses SET item_id=$1, description=$2, expense_date=$3, amount=$4 WHERE expense_id=$5;", item.ID, expense.Description, expense.ExpenseDate, expense.Amount, expense.ID)

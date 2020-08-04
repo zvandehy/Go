@@ -6,6 +6,8 @@ import (
 	"fmt"
 	_"github.com/lib/pq" //postgres driver
 	"net/http"
+	"time"
+	"github.com/shopspring/decimal" // safer way to store currency
 )
 
 //database type
@@ -26,6 +28,21 @@ const (
 	userInputDate = "2006-01-02"
 )
 
+// todo Would a map work better?
+
+// DashboardData encapsulates the data sent to the dashboard template
+type DashboardData struct {
+	Today time.Time
+	Monthly []TrackerData
+	Weekly []TrackerData
+}
+
+// TrackerData encapsulates expense totals for a specific item
+type TrackerData struct {
+	Item BudgetItem
+	Total decimal.Decimal
+	FrequencyTotals []float32
+}
 
 func init() {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
@@ -67,6 +84,7 @@ func main() {
 	http.ListenAndServe(":8080", nil)
 }
 
+
 func index(w http.ResponseWriter, r *http.Request) {
 	//get home page
 	if r.Method != "GET" {
@@ -77,6 +95,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 	//get all budget items
 	rows, err := db.Query("SELECT * FROM budget_items")
 	if err != nil {
+		fmt.Println("Error getting budget items: ", err)
 		http.Error(w, http.StatusText(500), 500)
 		return
 	}
@@ -86,14 +105,16 @@ func index(w http.ResponseWriter, r *http.Request) {
 	budgetItems := make([]BudgetItem, 0)
 	for rows.Next() {
 		item := BudgetItem{}
-		err := rows.Scan(&item.ID, &item.Category, &item.Limit, &item.Frequency) // order matters
+		err := rows.Scan(&item.ID, &item.Category, &item.Limit, &item.Frequency) // scan in order of query
 		if err != nil {
+			fmt.Println("Error reading budget items: ", err)
 			http.Error(w, http.StatusText(500), 500)
 			return
 		}
 		budgetItems = append(budgetItems, item)
 	}
 	if err = rows.Err(); err != nil {
+		fmt.Println("Error returned during iteration of reading budget items: ", err)
 		http.Error(w, http.StatusText(500), 500)
 		return
 	}
@@ -104,6 +125,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 	// get all expenses
 	expenseRows, err := db.Query("SELECT * FROM expenses")
 	if err != nil {
+		fmt.Println("Error getting expenses: ", err)
 		http.Error(w, http.StatusText(500),500)
 		return
 	}
@@ -113,23 +135,39 @@ func index(w http.ResponseWriter, r *http.Request) {
 	expenses := make([]Expense, 0)
 	for expenseRows.Next() {
 		var expense Expense
-		var itemID int
-		err := rows.Scan(&expense.ID, &itemID, &expense.Description, &expense.ExpenseDate, &expense.Amount)
+		var itemID int32
+		err := expenseRows.Scan(&expense.ID, &itemID, &expense.Description, &expense.ExpenseDate, &expense.Amount)
 		if err != nil {
+			fmt.Println("Error reading expenses: ", err)
 			http.Error(w, http.StatusText(500), 500)
 			return
 		}
 
+		// assign item to expense
+		for _, item := range budgetItems {
+			if item.ID == itemID {
+				expense.Item = item
+			}
+		}
+
 		expenses = append(expenses, expense)
 	}
+	if err = expenseRows.Err(); err != nil {
+		fmt.Println("Error returned during iteration of reading expenses: ", err)
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
 
+	data := DashboardData{
+		Today: time.Now(),
+		Monthly: getTrackersWithFrequency(&budgetItems, &expenses, "Monthly"),
+		Weekly: getTrackersWithFrequency(&budgetItems, &expenses, "Weekly"),
+	}
 
-	
-
-	tpl.ExecuteTemplate(w, "dashboard.gohtml", budgetItems)
+	tpl.ExecuteTemplate(w, "dashboard.gohtml", data)
 }
 
-// APPEND weeklyTotal and monthlyTotal to budgetItems list
+// Append weeklyTotal and monthlyTotal to budgetItems list
 func appendTotals(budgetItems []BudgetItem) []BudgetItem {
 	weeklyTotal := BudgetItem{
 		Category: "Weekly Total", //only budget items with "weekly" frequency
@@ -139,14 +177,55 @@ func appendTotals(budgetItems []BudgetItem) []BudgetItem {
 		Category: "Monthly Total", // only budget items with "monthly" frequency
 		Frequency: "Monthly",
 	}
+	// set limits
 	for _, item := range budgetItems {
 		if item.Frequency == "Weekly" {
-			weeklyTotal.Limit = weeklyTotal.Limit + item.Limit
+			weeklyTotal.Limit = weeklyTotal.Limit.Add(item.Limit)
 		}
 		if item.Frequency == "Monthly" {
-			monthlyTotal.Limit = monthlyTotal.Limit + item.Limit
+			monthlyTotal.Limit = monthlyTotal.Limit.Add(item.Limit)
 		}
 	}
 	budgetItems = append(budgetItems,weeklyTotal,monthlyTotal)
 	return budgetItems
+}
+
+func getTrackersWithFrequency(budgetItems *[]BudgetItem, expenses *[]Expense, frequency string) []TrackerData {
+	var trackers []TrackerData
+	// create a tracker for each budget item
+	for _, item := range *budgetItems {
+		// if item matches frequency
+		if item.Frequency == frequency {
+			// create tracker data with item
+			tracker := TrackerData{
+				Item: item,
+			}
+			// add tracker to list of trackers
+			trackers = append(trackers, tracker)
+		}
+	}
+
+	// for all expenses
+	for _, expense := range *expenses {
+		// for all trackers
+		for i, tracker := range trackers {
+			// add expense Amount to tracker total
+			if expense.Item == tracker.Item {
+				trackers[i].Total = trackers[i].Total.Add(expense.Amount)
+			}
+			// add expense Amount to appropriate frequency total
+			if frequency == "Weekly" && expense.Item.Frequency == "Weekly" && tracker.Item.Category == "Weekly Total" {
+				trackers[i].Total = trackers[i].Total.Add(expense.Amount)
+			}
+			if frequency == "Monthly" && expense.Item.Frequency == "Monthly" && tracker.Item.Category == "Monthly Total" {
+				trackers[i].Total = trackers[i].Total.Add(expense.Amount)
+			}
+
+			// todo: add totals for frequency intervals
+		}
+	}
+
+
+	
+	return trackers
 }
