@@ -8,6 +8,7 @@ import (
 	"time"
 	"database/sql"
 	"github.com/shopspring/decimal"
+	"github.com/araddon/dateparse"
 )
 
 //Expense is an individual record of a payment
@@ -108,7 +109,7 @@ func expensesCreateProcess(w http.ResponseWriter, r *http.Request) {
 	expense.Amount = a
 
 	//parse the user input into a time.Time struct
-	expenseDate, err := time.Parse(userInputDate, date)
+	expenseDate, err := dateparse.ParseAny(date)
 	if err != nil {
 		fmt.Println(err)
 		http.Error(w, http.StatusText(406)+" Please hit back and enter a valid date", http.StatusNotAcceptable)
@@ -226,7 +227,7 @@ func expensesUpdateProcess(w http.ResponseWriter, r *http.Request) {
 	expense.ID = int(expenseID)
 	expense.Description = r.FormValue("description")
 	//parse the form value "date" into a time.Time object FROM the readable format
-	expenseDate, err := time.Parse(readableDate, r.FormValue("date"))
+	expenseDate, err := dateparse.ParseAny(r.FormValue("date"))
 	if err != nil {
 		fmt.Println(err)
 		http.Error(w, http.StatusText(406)+" Please hit back and enter a valid date", http.StatusNotAcceptable)
