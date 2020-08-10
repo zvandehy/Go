@@ -7,10 +7,22 @@
 <body>
 <h2>Weekly</h2>
 <table>
-<tr><td><b>ITEM</b></td><td><b>LIMIT</b></td><td><b>TOTAL</b></td></tr>
+<tr><td><b>ITEM</b></td><td><b>LIMIT</b></td>
+{{range .Mondays}}
+        <td>
+        {{.Format "Jan 02"}}
+        </td>
+    {{end}}
+<td><b>TOTAL</b></td></tr>
 {{range .Weekly}}
 <tr>
-<td>{{.Item.Category}}</td><td>${{.Item.Limit}}</td><td>${{.Total}}</td>
+    <td>{{.Item.Category}}</td><td>${{.Item.Limit}}</td>
+    {{range .Intervals}}
+        <td>
+        {{.}}
+        </td>
+    {{end}}
+    <td>${{.Total}}</td>
 </tr>
 {{end}}
 </table>

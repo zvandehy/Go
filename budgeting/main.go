@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 	"github.com/shopspring/decimal" // safer way to store currency
+	"github.com/jinzhu/now" //get start of week
 )
 
 //database type
@@ -33,6 +34,8 @@ const (
 // DashboardData encapsulates the data sent to the dashboard template
 type DashboardData struct {
 	Today time.Time
+	NumWeeks int
+	Mondays []time.Time
 	Monthly []TrackerData
 	Weekly []TrackerData
 }
@@ -41,7 +44,7 @@ type DashboardData struct {
 type TrackerData struct {
 	Item BudgetItem
 	Total decimal.Decimal
-	FrequencyTotals []float32
+	Intervals []float32
 }
 
 func init() {
@@ -158,10 +161,23 @@ func index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	numWeeks := 5
+	var mondays = make([]time.Time,numWeeks)
+	now.WeekStartDay = time.Monday
+	
+	mondays[numWeeks-1] = now.BeginningOfWeek()
+	for i:=numWeeks-1; i>0; i-- {
+		mondays[i-1] = mondays[i].AddDate(0,0,-7)
+	}
+
+	
+
 	data := DashboardData{
 		Today: time.Now(),
-		Monthly: getTrackersWithFrequency(&budgetItems, &expenses, "Monthly"),
-		Weekly: getTrackersWithFrequency(&budgetItems, &expenses, "Weekly"),
+		NumWeeks: numWeeks,
+		Mondays: mondays,
+		Monthly: getTrackersWithFrequency(&budgetItems, &expenses, "Monthly", 5),
+		Weekly: getTrackersWithFrequency(&budgetItems, &expenses, "Weekly", 5),
 	}
 
 	tpl.ExecuteTemplate(w, "dashboard.gohtml", data)
@@ -190,7 +206,7 @@ func appendTotals(budgetItems []BudgetItem) []BudgetItem {
 	return budgetItems
 }
 
-func getTrackersWithFrequency(budgetItems *[]BudgetItem, expenses *[]Expense, frequency string) []TrackerData {
+func getTrackersWithFrequency(budgetItems *[]BudgetItem, expenses *[]Expense, frequency string, numWeeks int) []TrackerData {
 	var trackers []TrackerData
 	// create a tracker for each budget item
 	for _, item := range *budgetItems {
@@ -199,6 +215,7 @@ func getTrackersWithFrequency(budgetItems *[]BudgetItem, expenses *[]Expense, fr
 			// create tracker data with item
 			tracker := TrackerData{
 				Item: item,
+				Intervals: make([]float32, numWeeks),
 			}
 			// add tracker to list of trackers
 			trackers = append(trackers, tracker)
@@ -221,7 +238,10 @@ func getTrackersWithFrequency(budgetItems *[]BudgetItem, expenses *[]Expense, fr
 				trackers[i].Total = trackers[i].Total.Add(expense.Amount)
 			}
 
-			// todo: add totals for frequency intervals
+			//add totals for frequency intervals
+			for j := range tracker.Intervals {
+				tracker.Intervals[j] = 10.10
+			}
 		}
 	}
 
